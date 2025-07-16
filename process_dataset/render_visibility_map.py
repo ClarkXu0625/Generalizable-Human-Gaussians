@@ -31,12 +31,18 @@ import sys
 import math
 import trimesh
 import os
+import pdb
+import imageio
 
 def compute_fov_from_focal_length(focal_length, image_size):
 
     return 2 * math.atan(image_size / (2 * focal_length))
 
 def compute_near_far(vertices, extr, device='cuda'):
+    '''
+    vertices: [10475, 3]: tensor of 3D points in world space 
+    extr: [3, 4]: camera extrinsic matrix
+    '''
 
     extr_4x4 = torch.cat([extr, torch.tensor([[0, 0, 0, 1]], dtype=torch.float32, device=device)], dim=0).to(device)
 
@@ -79,6 +85,28 @@ def find_3d_vertices_for_uv(faces):
                 uv_to_vertices[uv_index].add(vertex_index)
 
     return uv_to_vertices
+
+def find_3d_vertices_for_uv_torch_dict(faces: torch.Tensor) -> dict:
+    """
+    Args:
+        faces: [F, 3, 2] tensor, (vertex_idx, uv_idx)
+    Returns:
+        uv_to_vertices: Dict[int, Set[int]] where key = uv_idx, value = set of vertex_idx
+    """
+    uv_to_vertices = {}
+
+    flat = faces.view(-1, 2)  # [F*3, 2]
+    vert_idx = flat[:, 0].tolist()
+    uv_idx = flat[:, 1].tolist()
+
+    for v_idx, u_idx in zip(vert_idx, uv_idx):
+        if u_idx not in uv_to_vertices:
+            uv_to_vertices[u_idx] = set()
+        uv_to_vertices[u_idx].add(v_idx)
+
+    return uv_to_vertices
+
+
 
 def perspective_projection_opencv_to_opengl(fx, fy, cx, cy, near, far, width, height, device='cuda'):
 
@@ -205,22 +233,41 @@ glctx = dr.RasterizeCudaContext()
 smplx_fp = "datasets/THuman/smplx_uv.obj"
 vertices_tpose, faces, uvs = load_obj(smplx_fp)
 
-vertices_tpose = np.array(vertices_tpose)
-faces = np.array(faces)
-uvs = np.array(uvs)
-uv_pts_mapping = find_3d_vertices_for_uv(faces)
+# vertices_tpose = np.array(vertices_tpose)
+# faces = np.array(faces)
+# uvs = np.array(uvs)
+# uv_pts_mapping = find_3d_vertices_for_uv(faces)
+
+# n_uvs = uvs.shape[0]
+
+# pos = uvs
+# pos = 2 * pos - 1
+# final_pos = np.stack(
+#     [pos[..., 0], pos[..., 1], np.zeros_like(pos[..., 0]),
+#      np.ones_like(pos[..., 0])], axis=-1)
+# final_pos = final_pos.reshape((1, -1, 4))
+
+# pos_uv = torch.from_numpy(final_pos).to(dtype=torch.float32, device='cuda')
+# tri_uv = torch.from_numpy(faces[...,1]).to(dtype=torch.int32, device='cuda')
+vertices_tpose = torch.tensor(vertices_tpose, dtype=torch.float32, device='cuda')
+faces = torch.tensor(faces, dtype=torch.int32, device='cuda')  # shape: [F, 3, 2]
+uvs = torch.tensor(uvs, dtype=torch.float32, device='cuda')    # shape: [N_uv, 2]
 
 n_uvs = uvs.shape[0]
+n_verts = vertices_tpose.shape[0]
+uv_pts_mapping = find_3d_vertices_for_uv_torch_dict(faces)
 
-pos = uvs
-pos = 2 * pos - 1
-final_pos = np.stack(
-    [pos[..., 0], pos[..., 1], np.zeros_like(pos[..., 0]),
-     np.ones_like(pos[..., 0])], axis=-1)
-final_pos = final_pos.reshape((1, -1, 4))
+# UV positions to clip space (OpenGL style)
+pos = 2 * uvs - 1
+final_pos = torch.cat([
+    pos, 
+    torch.zeros_like(pos[:, :1]), 
+    torch.ones_like(pos[:, :1])
+], dim=-1).unsqueeze(0)  # shape: [1, N_uv, 4]
 
-pos_uv = torch.from_numpy(final_pos).to(dtype=torch.float32, device='cuda')
-tri_uv = torch.from_numpy(faces[...,1]).to(dtype=torch.int32, device='cuda')
+pos_uv = final_pos.contiguous()
+tri_uv = faces[..., 1].contiguous()  # UV indices
+
 rast_uv_space, _ = dr.rasterize(glctx, pos_uv, tri_uv, resolution=[resolution, resolution])
 
 for scale_idx in range(5):
@@ -243,14 +290,24 @@ for scale_idx in range(5):
         obj_file_path = os.path.join(data_root, 'smplx_obj','{}.obj'.format(human))
 
         vertices, _, _ = load_obj(obj_file_path)
-        vertices = np.array(vertices)
-        vertices = torch.from_numpy(vertices).to(dtype=torch.float32, device='cuda')
+        # Convert list-of-tuples directly to torch
+        vertices = torch.tensor(vertices, dtype=torch.float32, device='cuda')
 
-        mesh = trimesh.load(obj_file_path, process=False)
-        normals = np.array(mesh.vertex_normals)
-        normals = torch.from_numpy(normals).to(dtype=torch.float32, device='cuda')
+        # Load normals from trimesh and convert to torch
+        normals = torch.tensor(
+            trimesh.load(obj_file_path, process=False).vertex_normals,
+            dtype=torch.float32, device='cuda'
+        )
+
+        # vertices = np.array(vertices)
+        # vertices = torch.from_numpy(vertices).to(dtype=torch.float32, device='cuda')
+
+        # mesh = trimesh.load(obj_file_path, process=False)
+        # normals = np.array(mesh.vertex_normals)
+        # normals = torch.from_numpy(normals).to(dtype=torch.float32, device='cuda')
 
         vertices = vertices + scale * normals
+        #pdb.set_trace()
 
         for angle_idx in range(num_angles):
 
@@ -287,7 +344,9 @@ for scale_idx in range(5):
                 pos_clip = pos_clip.unsqueeze(0) # [1, 10475, 4]
 
 
-                tri = torch.from_numpy(faces[..., 0]).to(dtype=torch.int32, device='cuda')
+                #tri = torch.from_numpy(faces[..., 0]).to(dtype=torch.int32, device='cuda')
+                tri = faces[..., 0].contiguous()  # [F, 3]
+                
                 rast, _ = dr.rasterize(glctx, pos_clip.contiguous(), tri,
                                        resolution=[image_width, image_height])
 
@@ -297,7 +356,9 @@ for scale_idx in range(5):
                 visible_faces = face_id.unique().type(torch.long) - 1
                 visible_faces.sort()
                 visible_faces = visible_faces[1:]
-                packed_faces = torch.from_numpy(faces[..., 0]).type(torch.long).cuda()
+                #packed_faces = torch.from_numpy(faces[..., 0]).type(torch.long).cuda()
+                packed_faces = faces[..., 0].long()  # already on GPU
+
 
                 vertex_visibility_map = torch.zeros(vertices.shape[0]).cuda()
 
@@ -324,6 +385,11 @@ for scale_idx in range(5):
                 visibility_fp = os.path.join(visibility_dir,'{}_{}.npy'.format(human, angle))
 
                 np.save(visibility_fp,visibility_np)
+                # Convert to grayscale PNG and save
+                vis_img = np.clip(visibility_np[..., 0] * 255, 0, 255).astype(np.uint8)
+                imageio.imwrite(visibility_fp.replace('.npy', '.png'), vis_img)
+
+                pdb.set_trace()
 
                 print('Processed human {} angle {} - {} ! {}/{} '.format(human,
                                                                          str(angle),
@@ -331,3 +397,5 @@ for scale_idx in range(5):
                                                                          str(human_idx),
                                                                          str(len(
                                                                              human_list))))
+                
+            
