@@ -5,6 +5,7 @@ import pickle
 import torch
 import numpy as np
 from tqdm import tqdm
+import pdb
 
 def generate_smplx(split_path, smplx_model_path, transform_root, param_root, output_data_root):
 
@@ -65,7 +66,8 @@ def generate_smplx(split_path, smplx_model_path, transform_root, param_root, out
         smpl_verts = (
             (smpl_out.vertices[0] * param['scale'] + param['translation'])).detach()
 
-        transform_fp = os.path.join(transform_root,human,"{}_transform.npy".format(human))
+        transform_fp = os.path.join(transform_root,"{}_transform.npy".format(human))
+        #transform_fp = os.path.join(transform_root,human,"{}_transform.npy".format(human))
         transform = np.load(transform_fp,allow_pickle=True).item()
 
         vy_max = transform['vy_max']
@@ -101,7 +103,8 @@ if __name__ == '__main__':
         # e.g., model_path - smplx - SMPLX_NEUTRAL.pkl
         smplx_model_path = 'datasets/THuman/models'
 
-        transform_root = 'datasets/THuman/THuman2.0_Release'
+        #transform_root = 'datasets/THuman/THuman2.0_Release'
+        transform_root = 'datasets/THuman/train/transform'
 
         # please set this to the root directory of the original THuman 2.0 smplx parameters
         param_root = 'datasets/THuman/THuman2.0_smplx'
