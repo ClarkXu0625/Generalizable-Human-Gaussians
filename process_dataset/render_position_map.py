@@ -52,6 +52,26 @@ def find_3d_vertices_for_uv(faces):
 
     return uv_to_vertices
 
+def find_3d_vertices_for_uv_torch(faces: torch.Tensor) -> dict[int, set[int]]:
+    """
+    Args:
+        faces: [F, 3, 2] tensor of (vertex_idx, uv_idx) per corner
+    Returns:
+        Dictionary mapping uv_index → set(vertex_index)
+    """
+    uv_to_vertices = {}
+
+    flat = faces.view(-1, 2)  # [F*3, 2]
+    vert_idx = flat[:, 0].tolist()
+    uv_idx = flat[:, 1].tolist()
+
+    for v_idx, u_idx in zip(vert_idx, uv_idx):
+        if u_idx not in uv_to_vertices:
+            uv_to_vertices[u_idx] = set()
+        uv_to_vertices[u_idx].add(v_idx)
+
+    return uv_to_vertices
+
 def load_obj(file_path):
 
     vertices = []
@@ -110,90 +130,7 @@ image_width = 1024
 glctx = dr.RasterizeCudaContext()
 
 smplx_fp = "datasets/THuman/smplx_uv.obj"
-# vertices_tpose, faces, uvs = load_obj(smplx_fp)
 
-# vertices_tpose = np.array(vertices_tpose)
-# faces = np.array(faces)
-# uvs = np.array(uvs)
-# uv_pts_mapping = find_3d_vertices_for_uv(faces)
-
-# n_uvs = uvs.shape[0]
-
-# pos = uvs
-# pos = 2 * pos - 1
-# final_pos = np.stack(
-#     [pos[..., 0], pos[..., 1], np.zeros_like(pos[..., 0]),
-#      np.ones_like(pos[..., 0])], axis=-1)
-# final_pos = final_pos.reshape((1, -1, 4))
-
-# pos_uv = torch.from_numpy(final_pos).to(dtype=torch.float32, device='cuda')
-# tri_uv = torch.from_numpy(faces[...,1]).to(dtype=torch.int32, device='cuda')
-# rast_uv_space, _ = dr.rasterize(glctx, pos_uv, tri_uv, resolution=[resolution, resolution])
-
-# face_id_raw = rast_uv_space[..., 3:]
-# face_id = face_id_raw[0]
-
-# for scale_idx in range(5):
-
-#     scale = scale_idx * 0.01
-
-#     if scale_idx == 0:
-#         position_dir = os.path.join(data_root,'position_map_uv_space')
-
-#     elif scale_idx > 0:
-#         position_dir = os.path.join(data_root,'position_map_uv_space_outer_shell_{}'.format(scale_idx))
-
-#     if not os.path.exists(position_dir):
-#         os.makedirs(position_dir)
-
-#     for human_idx in range(len(human_list)):
-
-#         human = human_list[human_idx]
-
-#         obj_file_path = os.path.join(data_root, 'smplx_obj','{}.obj'.format(human))
-
-#         vertices, _, _ = load_obj(obj_file_path)
-#         vertices = np.array(vertices)
-#         vertices = torch.from_numpy(vertices).to(dtype=torch.float32, device='cuda')
-
-#         mesh = trimesh.load(obj_file_path, process=False)
-#         normals = np.array(mesh.vertex_normals)
-#         normals = torch.from_numpy(normals).to(dtype=torch.float32, device='cuda')
-
-#         vertices = vertices + scale * normals
-
-#         attr = []
-#         for uv_idx in range(len(uvs)):
-#             for vertex_idx in uv_pts_mapping[uv_idx]:
-#                 attr.append(vertices[vertex_idx])
-
-#         attr = torch.stack(attr, dim=0)
-#         attr = attr[None]
-
-
-#         out2, _ = dr.interpolate(attr, rast_uv_space, tri_uv)
-
-#         bg_indices = torch.nonzero(face_id <= 0)
-#         out2[:, bg_indices[:, 0], bg_indices[:, 1], 0] = 0
-#         out2[:, bg_indices[:, 0], bg_indices[:, 1], 1] = 0
-#         out2[:, bg_indices[:, 0], bg_indices[:, 1], 2] = 0
-#         out3 = out2.cpu().numpy()[0, ::-1, :, :]
-
-
-#         position_map_name = os.path.join(position_dir,'{}_{}.npy'.format(human,resolution))
-#         out3 = out3.astype(np.float32)
-#         np.save(position_map_name, out3)
-
-#         # Normalize position map into [0, 1] range for visualization
-#         min_vals = out3.reshape(-1, 3).min(axis=0)
-#         max_vals = out3.reshape(-1, 3).max(axis=0)
-#         norm_pos = (out3 - min_vals) / (max_vals - min_vals + 1e-8)
-#         norm_pos = np.clip(norm_pos, 0, 1)
-
-#         # Convert to [0, 255] and save as RGB image
-#         vis_rgb = (norm_pos * 255).astype(np.uint8)
-#         png_path = position_map_name.replace('.npy', '.png')
-#         imageio.imwrite(png_path, vis_rgb)
 # Load SMPLX UV OBJ
 vertices_tpose, faces, uvs = load_obj(smplx_fp)
 
@@ -201,7 +138,8 @@ vertices_tpose = torch.tensor(vertices_tpose, dtype=torch.float32, device='cuda'
 faces = torch.tensor(faces, dtype=torch.int32, device='cuda')                      # [M, 3, 2]
 uvs = torch.tensor(uvs, dtype=torch.float32, device='cuda')                        # [N_uv, 2]
 
-uv_pts_mapping = find_3d_vertices_for_uv(faces.cpu().numpy())  # stays on CPU (dict)
+#uv_pts_mapping = find_3d_vertices_for_uv(faces.cpu().numpy())
+uv_pts_mapping = find_3d_vertices_for_uv_torch(faces)
 
 # Build UV-space vertex positions in clip space
 pos = 2.0 * uvs - 1.0
@@ -222,6 +160,9 @@ for scale_idx in range(5):
     scale = scale_idx * 0.01
     position_dir = os.path.join(data_root, f'position_map_uv_space_outer_shell_{scale_idx}' if scale_idx > 0 else 'position_map_uv_space')
     os.makedirs(position_dir, exist_ok=True)
+
+    img_dir = os.path.join(position_dir, "img")
+    os.makedirs(img_dir, exist_ok=True)
 
     for human_idx, human in enumerate(human_list):
         obj_file_path = os.path.join(data_root, 'smplx_obj', f'{human}.obj')
@@ -258,9 +199,12 @@ for scale_idx in range(5):
         norm_pos = (out3 - min_vals) / (max_vals - min_vals + 1e-8)
         norm_pos = norm_pos.clamp(0, 1)
         vis_rgb = (norm_pos * 255).to(torch.uint8)
-        imageio.imwrite(position_map_name.replace('.npy', '.png'), vis_rgb.cpu().numpy())
+        
+        png_filename = os.path.basename(position_map_name).replace('.npy', '.png')
+        png_path = os.path.join(img_dir, png_filename)
 
-        print(f"Saved position map visualization: {position_map_name.replace('.npy', '.png')}")
+        imageio.imwrite(png_path, vis_rgb.cpu().numpy())
 
-        #print(f"Saved position map visualization: {png_path}")
-        pdb.set_trace()
+        print(f"Saved position map visualization: {png_path}")
+
+        #pdb.set_trace()
