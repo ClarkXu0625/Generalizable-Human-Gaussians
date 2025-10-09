@@ -10,10 +10,12 @@ SAPIENS_CHECKPOINT_ROOT="/home/${USER}/Documents/GitHub/sapiens/lite"
 MODE='torchscript'   # or 'bfloat16'
 SAPIENS_CHECKPOINT_ROOT="${SAPIENS_CHECKPOINT_ROOT}/${MODE}"
 
-IMG_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/datasets/THuman/train/img"
-OUTPUT_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/lib/sapiens/output/seg"
-MODEL_NAME='sapiens_0.3b'
-CHECKPOINT="${SAPIENS_CHECKPOINT_ROOT}/seg/checkpoints/${MODEL_NAME}/${MODEL_NAME}_goliath_best_goliath_mIoU_7673_epoch_194_${MODE}.pt2"
+SPLIT="train"
+IMG_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/datasets/THuman/${SPLIT}/img"
+OUTPUT_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/lib/sapiens/output/${SPLIT}/seg"
+MODEL_NAME='sapiens_1b'
+#CHECKPOINT="${SAPIENS_CHECKPOINT_ROOT}/seg/checkpoints/${MODEL_NAME}/${MODEL_NAME}_goliath_best_goliath_mIoU_7673_epoch_194_${MODE}.pt2"
+CHECKPOINT="${SAPIENS_CHECKPOINT_ROOT}/seg/checkpoints/${MODEL_NAME}/sapiens_1b_goliath_best_goliath_mIoU_7994_epoch_151_$MODE.pt2"
 
 RUN_FILE="/home/clark/Documents/GitHub/sapiens/lite/demo/vis_seg1.py"
 INPUT_LIST="${IMG_ROOT}/image_list_all_0jpg.txt"

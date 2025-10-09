@@ -7,14 +7,18 @@ MODE='torchscript'   # or 'bfloat16'
 SAPIENS_CHECKPOINT_ROOT="${SAPIENS_CHECKPOINT_ROOT}/${MODE}"
 
 # ---------------------------- INPUT / OUTPUT ----------------------------------
-IMG_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/datasets/THuman/train/img"
-SEG_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/lib/sapiens/output/seg/sapiens_0.3b"
-OUTPUT_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/lib/sapiens/output/depth/sapiens_0.3b"
+SPLIT="train"
+MODEL_NAME='sapiens_1b'
+IMG_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/datasets/THuman/${SPLIT}/img"
+SEG_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/lib/sapiens/output/${SPLIT}/seg/sapiens_0.3b"  #${MODEL_NAME}}"
+OUTPUT_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/lib/sapiens/output/${SPLIT}/depth/${MODEL_NAME}"
 RES_FILTER=""   # optional resolution filter like "1024x1024"
 
 # ---------------------------- MODEL -------------------------------------------
-MODEL_NAME='sapiens_0.3b'
-CHECKPOINT="${SAPIENS_CHECKPOINT_ROOT}/depth/checkpoints/${MODEL_NAME}/${MODEL_NAME}_render_people_epoch_100_${MODE}.pt2"
+
+# CHECKPOINT="${SAPIENS_CHECKPOINT_ROOT}/depth/checkpoints/${MODEL_NAME}/${MODEL_NAME}_render_people_epoch_100_${MODE}.pt2"
+CHECKPOINT="${SAPIENS_CHECKPOINT_ROOT}/depth/checkpoints/${MODEL_NAME}/sapiens_1b_render_people_epoch_88_$MODE.pt2"
+
 
 # ---------------------------- RUNTIME / GPUS ----------------------------------
 RUN_FILE='/home/clark/Documents/GitHub/sapiens/lite/demo/vis_depth1.py'
