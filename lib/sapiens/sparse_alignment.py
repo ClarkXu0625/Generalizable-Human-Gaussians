@@ -125,6 +125,9 @@ def main():
                     help="SMPL depth filename inside each <obj>_<cam> folder")
     ap.add_argument("--pattern_sapiens", default="0.npy",
                     help="Sapiens depth filename inside each <obj>_<cam> folder")
+    ap.add_argument("--subview", default="0",
+                    help="alginment file output name inside each <obj>_<cam> folder")
+    
     ap.add_argument("--seg_root", default=None,
                     help="Optional segmentation root; if provided, mask ∧= (seg>0) for *fit only*.")
     ap.add_argument("--seg_img_root", default=None, help="Optional segmentation image root; if provided, mask ∧= (seg>0) for *fit only*.")
@@ -143,6 +146,7 @@ def main():
     # find directories (relative) that contain the target file pattern
     smpl_dirs    = find_rel_dirs(args.smpl_root,    args.pattern_smpl)
     sapiens_dirs = find_rel_dirs(args.sapiens_root, args.pattern_sapiens)
+    subview = args.subview
 
     both = sorted(set(smpl_dirs) & set(sapiens_dirs))
 
@@ -296,7 +300,7 @@ def main():
         # align and apply OUTPUT mask
         sap_aligned = (s * sap + t).astype(np.float32)
         sap_aligned[~m_out] = np.nan
-        np.save(os.path.join(out_dir, "0_aligned.npy"), sap_aligned)
+        np.save(os.path.join(out_dir, f"{subview}_aligned.npy"), sap_aligned)
 
         # ---- SANITY IMAGES ----
         # Left: SMPL where used for fit (m_fit)
@@ -307,7 +311,7 @@ def main():
         both_m  = m_fit
         res_cm  = colormap_depth(np.abs(sap_aligned - smpl), mask=both_m)
         vis = np.concatenate([abs_cm, aln_cm, res_cm], axis=1)
-        cv2.imwrite(os.path.join(out_dir, "align_sanity.png"), vis)
+        cv2.imwrite(os.path.join(out_dir, f"{subview}_align_sanity.png"), vis)
 
         # optional: quick stats to confirm masking is applied
         fg_count = int(m_out.sum()); tot = m_out.size
