@@ -41,7 +41,10 @@ else
 fi
 
 # ---------------------------- STAGE + LIST ------------------------------------
-STAGE_BASE="$(mktemp -d -p /tmp sapiens_depth_stage_XXXXXX)"
+STAGE_PARENT="/mnt/esdata/tmp"   # or another big mount
+mkdir -p "${STAGE_PARENT}"
+STAGE_BASE="$(mktemp -d -p "${STAGE_PARENT}" sapiens_depth_stage_XXXXXX)"
+#STAGE_BASE="$(mktemp -d -p /tmp sapiens_depth_stage_XXXXXX)"
 trap 'rm -rf "${STAGE_BASE}"' EXIT
 STAGE_IMG="${STAGE_BASE}/img"   # vis_depth1 --input points here
 STAGE_SEG="${STAGE_BASE}/seg"   # vis_depth1 --seg_dir points here

@@ -10,7 +10,7 @@ SAPIENS_CHECKPOINT_ROOT="/home/${USER}/Documents/GitHub/sapiens/lite"
 MODE='torchscript'   # or 'bfloat16'
 SAPIENS_CHECKPOINT_ROOT="${SAPIENS_CHECKPOINT_ROOT}/${MODE}"
 
-SPLIT="train"
+SPLIT="val"
 IMG_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/datasets/THuman/${SPLIT}/img"
 
 # Outputs

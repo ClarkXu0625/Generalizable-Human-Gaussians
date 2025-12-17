@@ -7,7 +7,7 @@ MODE='torchscript'   # or 'bfloat16'
 SAPIENS_CHECKPOINT_ROOT="${SAPIENS_CHECKPOINT_ROOT}/${MODE}"
 
 # ---------------------------- INPUT / OUTPUT ----------------------------------
-SPLIT="train"
+SPLIT="val"
 MODEL_NAME='sapiens_1b'
 IMG_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/datasets/THuman/${SPLIT}/img"
 SEG_ROOT="/home/clark/Documents/GitHub/Generalizable-Human-Gaussians/lib/sapiens/output/${SPLIT}/seg/sapiens_0.3b"  #${MODEL_NAME}}"
